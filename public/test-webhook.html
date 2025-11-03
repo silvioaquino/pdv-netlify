@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Webhook - PDV</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .card { margin-bottom: 20px; }
+        .response { background: #f8f9fa; padding: 15px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>🧪 Teste de Webhook</h1>
+        <p>Envie pedidos de teste para o servidor PDV</p>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Dados do Pedido</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Tipo de Pedido</label>
+                            <select class="form-select" id="tipoPedido">
+                                <option value="delivery">Delivery</option>
+                                <option value="retirada">Retirada</option>
+                                <option value="mesa">Mesa</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Tipo de Pagamento</label>
+                            <select class="form-select" id="tipoPagamento">
+                                <option value="DINHEIRO">Dinheiro</option>
+                                <option value="CARTAO_CREDITO">Cartão de Crédito</option>
+                                <option value="CARTAO_DEBITO">Cartão de Débito</option>
+                                <option value="PIX">PIX</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Valor Total</label>
+                            <input type="number" class="form-control" id="valorTotal" value="45.50" step="0.01">
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="enviarWebhook()">
+                            📤 Enviar Pedido de Teste
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Resposta do Servidor</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="resposta" class="response">
+                            <em>Nenhuma resposta ainda...</em>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Status do Sistema</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-outline-secondary w-100" onclick="verificarStatus()">
+                            🔍 Verificar Status
+                        </button>
+                        <div id="status" class="mt-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000';
+
+        async function enviarWebhook() {
+            const pedido = {
+                nome_cliente: "Cliente Teste " + Math.floor(Math.random() * 1000),
+                telefone_cliente: "(11) 9" + Math.floor(Math.random() * 9000 + 1000) + "-" + Math.floor(Math.random() * 9000 + 1000),
+                tipo_pedido: document.getElementById('tipoPedido').value,
+                endereco_completo: document.getElementById('tipoPedido').value === 'delivery' ? 
+                    'Rua Teste, 123 - São Paulo/SP' : '',
+                data_hora_pedido: new Date().toISOString(),
+                valor_total: parseFloat(document.getElementById('valorTotal').value),
+                tipo_pagamento: document.getElementById('tipoPagamento').value,
+                produtos: [
+                    {
+                        nome_produto: "Produto Teste A",
+                        quantidade: 1,
+                        valor: 25.00,
+                        adicionais: ["Extra 1"],
+                        complementos: ["Observação teste"]
+                    },
+                    {
+                        nome_produto: "Produto Teste B", 
+                        quantidade: 2,
+                        valor: 10.25,
+                        adicionais: [],
+                        complementos: []
+                    }
+                ]
+            };
+
+            try {
+                const response = await fetch(API_URL + '/webhook/vendas', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(pedido)
+                });
+
+                const data = await response.json();
+                
+                document.getElementById('resposta').innerHTML = `
+                    <strong>Status:</strong> ${response.status}<br>
+                    <strong>Sucesso:</strong> ${data.success}<br>
+                    <strong>Mensagem:</strong> ${data.message}<br>
+                    ${data.venda_id ? `<strong>ID Venda:</strong> ${data.venda_id}` : ''}
+                    <hr>
+                    <strong>Dados Enviados:</strong>
+                    <pre>${JSON.stringify(pedido, null, 2)}</pre>
+                `;
+
+            } catch (error) {
+                document.getElementById('resposta').innerHTML = `
+                    <strong>Erro:</strong> ${error.message}
+                `;
+            }
+        }
+
+        async function verificarStatus() {
+            try {
+                const response = await fetch(API_URL + '/health');
+                const data = await response.json();
+                
+                document.getElementById('status').innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>Backend:</strong> ${data.status}<br>
+                        <strong>Banco:</strong> ${data.database}<br>
+                        <strong>Timestamp:</strong> ${new Date(data.timestamp).toLocaleString()}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('status').innerHTML = `
+                    <div class="alert alert-danger">
+                        <strong>Erro:</strong> Não foi possível conectar ao servidor
+                    </div>
+                `;
+            }
+        }
+
+        // Verificar status automaticamente ao carregar
+        verificarStatus();
+    </script>
+</body>
+</html>
